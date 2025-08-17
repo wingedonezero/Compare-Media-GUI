@@ -1,11 +1,13 @@
-import dearpygui.dearpygui as dpg
-import subprocess
-import json
 import hashlib
+import json
 import os
-import threading
 import queue
+import subprocess
 import tempfile
+import threading
+
+import dearpygui.dearpygui as dpg
+
 
 # --- Core Hashing & Info Functions ---
 
@@ -21,6 +23,7 @@ def check_ffmpeg_installed():
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         tool = "mkvextract" if "mkvextract" in str(e) else "ffmpeg/ffprobe"
         return False, f"FATAL ERROR: {tool} not found in your system's PATH."
+
 
 def get_stream_info(filepath, entries="streams"):
     """
@@ -40,6 +43,7 @@ def get_stream_info(filepath, entries="streams"):
     except json.JSONDecodeError:
         return None, "Error: Failed to parse ffprobe JSON output."
 
+
 def get_stream_hash_copied(filepath, stream_index):
     """
     Generates an MD5 hash by performing a "stream copy".
@@ -57,6 +61,7 @@ def get_stream_hash_copied(filepath, stream_index):
     except subprocess.CalledProcessError as e:
         return None, f"ffmpeg error: {e.stderr}"
 
+
 def get_stream_hash_decoded(filepath, stream_index):
     """
     Generates an MD5 hash by fully decoding the stream.
@@ -73,6 +78,7 @@ def get_stream_hash_decoded(filepath, stream_index):
         return None, "Error: Could not find MD5 hash in ffmpeg output."
     except subprocess.CalledProcessError as e:
         return None, f"ffmpeg error: {e.stderr}"
+
 
 def get_raw_stream_hash_in_memory(filepath, stream_index, codec_name):
     """
@@ -110,6 +116,7 @@ def get_raw_stream_hash_in_memory(filepath, stream_index, codec_name):
     except Exception as e:
         return None, f"An error occurred during in-memory hashing: {e}"
 
+
 def get_mkvextract_hash(filepath, stream_index):
     """
     Extracts a stream using mkvextract to a temporary file and hashes it.
@@ -139,9 +146,11 @@ def get_mkvextract_hash(filepath, stream_index):
         if os.path.exists(temp_filename):
             os.remove(temp_filename)
 
+
 # --- Comparison & Info Logic ---
 
-def run_full_comparison_threaded(hash_function, method_name, file1_path, file2_path, progress_queue, result_queue, stream_type_filter=None):
+def run_full_comparison_threaded(hash_function, method_name, file1_path, file2_path, progress_queue, result_queue,
+                                 stream_type_filter=None):
     """
     The main comparison logic for file comparison, run in a separate thread.
     Can optionally filter to only compare streams of a specific type.
@@ -231,7 +240,7 @@ def run_full_comparison_threaded(hash_function, method_name, file1_path, file2_p
                 note = f"  - NOTE: Non-AV stream. Using fast copy hash instead."
             s1_hash, err = current_hash_func(file1_path, s1_index)
 
-        stream_details_1[s1_index] = { "hash": s1_hash if not err else f"HASH ERROR: {err}" }
+        stream_details_1[s1_index] = {"hash": s1_hash if not err else f"HASH ERROR: {err}"}
 
         if note: report.append(note)
         if err:
@@ -243,7 +252,8 @@ def run_full_comparison_threaded(hash_function, method_name, file1_path, file2_p
         found_in_file2 = False
         for s2_index, s2_details in stream_details_2.items():
             if s1_hash == s2_details['hash']:
-                report.append(f"  - MATCH: Identical to File 2, Stream #{s2_index} ({s2_details['type'].upper()}, {s2_details['codec']})")
+                report.append(
+                    f"  - MATCH: Identical to File 2, Stream #{s2_index} ({s2_details['type'].upper()}, {s2_details['codec']})")
                 found_in_file2 = True
                 stream_details_2[s2_index]['matched'] = True
                 matched_streams_1.add(s1_index)
@@ -259,7 +269,8 @@ def run_full_comparison_threaded(hash_function, method_name, file1_path, file2_p
         if stream1['index'] not in matched_streams_1:
             s1_index = stream1['index']
             s1_hash_info = stream_details_1.get(s1_index, {}).get('hash', 'N/A')
-            report.append(f"[File 1] Unmatched: Stream #{s1_index} ({stream1.get('codec_type', 'N/A').upper()}, {stream1.get('codec_name', 'N/A')})")
+            report.append(
+                f"[File 1] Unmatched: Stream #{s1_index} ({stream1.get('codec_type', 'N/A').upper()}, {stream1.get('codec_name', 'N/A')})")
             report.append(f"  - Hash (MD5): {s1_hash_info}")
             unmatched_in_1_found = True
     if not unmatched_in_1_found and streams1:
@@ -271,13 +282,15 @@ def run_full_comparison_threaded(hash_function, method_name, file1_path, file2_p
     for s2_index, s2_details in stream_details_2.items():
         if not s2_details['matched']:
             s2_hash_info = s2_details.get('hash', 'N/A')
-            report.append(f"[File 2] Unmatched: Stream #{s2_index} ({s2_details['type'].upper()}, {s2_details['codec']})")
+            report.append(
+                f"[File 2] Unmatched: Stream #{s2_index} ({s2_details['type'].upper()}, {s2_details['codec']})")
             report.append(f"  - Hash (MD5): {s2_hash_info}")
             unmatched_in_2_found = True
     if not unmatched_in_2_found and streams2:
         report.append(f"[File 2] All '{stream_type_filter or 'streams'}' streams were matched by a stream in File 1.")
 
     result_queue.put(report)
+
 
 def run_analysis_threaded(file1_path, file2_path, stream_type_filter, result_queue):
     """
@@ -314,7 +327,7 @@ def run_analysis_threaded(file1_path, file2_path, stream_type_filter, result_que
 
             extract_hash, extract_err = get_mkvextract_hash(filepath, stream_index)
             if extract_err:
-                 file_report.append(f"  - Extracted File Hash: ERROR - {extract_err}")
+                file_report.append(f"  - Extracted File Hash: ERROR - {extract_err}")
             else:
                 file_report.append(f"  - Extracted File Hash: {extract_hash}")
 
@@ -329,7 +342,7 @@ def run_analysis_threaded(file1_path, file2_path, stream_type_filter, result_que
         report.extend(_process_file(file1_path))
 
     if file2_path:
-        report.append("\n" + "="*40 + "\n") # Separator
+        report.append("\n" + "=" * 40 + "\n")  # Separator
         report.extend(_process_file(file2_path))
 
     result_queue.put(report)
@@ -339,6 +352,7 @@ def run_analysis_threaded(file1_path, file2_path, stream_type_filter, result_que
 
 progress_queue = queue.Queue()
 result_queue = queue.Queue()
+
 
 def start_comparison(sender, app_data, user_data):
     """Callback for the main comparison buttons."""
@@ -370,6 +384,7 @@ def start_comparison(sender, app_data, user_data):
         daemon=True
     )
     thread.start()
+
 
 def start_analysis(sender, app_data, user_data):
     """Callback for the analysis button."""
@@ -412,37 +427,48 @@ def create_gui():
         dpg.add_separator()
         dpg.add_text("Full File Comparison (All Streams)", color=(255, 255, 0))
         with dpg.group(horizontal=True, tag="full_comparison_group"):
-            dpg.add_button(label="Compare (Fast, Stream Copy)", callback=start_comparison, user_data=(get_stream_hash_copied, "Stream Copy", False))
-            dpg.add_button(label="Compare (Slow, Full Decode)", callback=start_comparison, user_data=(get_stream_hash_decoded, "Full Decode", False))
-            dpg.add_button(label="Compare (Raw In-Memory Hash)", callback=start_comparison, user_data=(None, "Raw In-Memory Hash", False))
+            dpg.add_button(label="Compare (Fast, Stream Copy)", callback=start_comparison,
+                           user_data=(get_stream_hash_copied, "Stream Copy", False))
+            dpg.add_button(label="Compare (Slow, Full Decode)", callback=start_comparison,
+                           user_data=(get_stream_hash_decoded, "Full Decode", False))
+            dpg.add_button(label="Compare (Raw In-Memory Hash)", callback=start_comparison,
+                           user_data=(None, "Raw In-Memory Hash", False))
 
         dpg.add_separator()
         dpg.add_text("Individually Compare All Streams of a Specific Type", color=(255, 255, 0))
         with dpg.group(horizontal=True, tag="individual_type_group"):
             dpg.add_text("Stream Type:")
-            dpg.add_combo(items=["Video", "Audio", "Subtitle"], tag="individual_type_selector", default_value="Audio", width=120)
-            dpg.add_button(label="Run (Stream Copy)", callback=start_comparison, user_data=(get_stream_hash_copied, "Stream Copy", True))
-            dpg.add_button(label="Run (Full Decode)", callback=start_comparison, user_data=(get_stream_hash_decoded, "Full Decode", True))
-            dpg.add_button(label="Run (Raw In-Memory)", callback=start_comparison, user_data=(None, "Raw In-Memory Hash", True))
+            dpg.add_combo(items=["Video", "Audio", "Subtitle"], tag="individual_type_selector", default_value="Audio",
+                          width=120)
+            dpg.add_button(label="Run (Stream Copy)", callback=start_comparison,
+                           user_data=(get_stream_hash_copied, "Stream Copy", True))
+            dpg.add_button(label="Run (Full Decode)", callback=start_comparison,
+                           user_data=(get_stream_hash_decoded, "Full Decode", True))
+            dpg.add_button(label="Run (Raw In-Memory)", callback=start_comparison,
+                           user_data=(None, "Raw In-Memory Hash", True))
 
         dpg.add_separator()
         dpg.add_text("Analysis: Raw vs. Extracted Hash", color=(255, 255, 0))
         with dpg.group(horizontal=True, tag="analysis_group"):
             dpg.add_text("Stream Type:")
-            dpg.add_combo(items=["Video", "Audio", "Subtitle"], tag="analysis_type_selector", default_value="Audio", width=120)
+            dpg.add_combo(items=["Video", "Audio", "Subtitle"], tag="analysis_type_selector", default_value="Audio",
+                          width=120)
             dpg.add_button(label="Run Analysis on File 1 & 2", callback=start_analysis)
-        dpg.add_text("This tool compares the raw stream data against the data from a standard extraction\nto prove if a container delay is present.", wrap=0)
-
+        dpg.add_text(
+            "This tool compares the raw stream data against the data from a standard extraction\nto prove if a container delay is present.",
+            wrap=0)
 
         dpg.add_progress_bar(tag="progress_bar", default_value=0.0, width=-1, show=False)
         dpg.add_separator()
 
         dpg.add_text("Report:")
-        dpg.add_input_text(tag="report_text", multiline=True, readonly=True, default_value="Awaiting comparison...", width=-1, height=-1)
+        dpg.add_input_text(tag="report_text", multiline=True, readonly=True, default_value="Awaiting comparison...",
+                           width=-1, height=-1)
 
     dpg.create_viewport(title='FFmpeg Media Comparator', width=800, height=750)
     dpg.setup_dearpygui()
     dpg.show_viewport()
+
 
 def main_gui_loop():
     """The main event loop for the GUI."""
@@ -474,6 +500,7 @@ def main_gui_loop():
         dpg.render_dearpygui_frame()
 
     dpg.destroy_context()
+
 
 if __name__ == "__main__":
     create_gui()
